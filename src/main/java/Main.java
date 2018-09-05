@@ -34,7 +34,6 @@ public class Main extends JDialog {
         $$$setupUI$$$();
         setPreferredSize(new Dimension(400, 600));
 
-
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
 
@@ -47,27 +46,20 @@ public class Main extends JDialog {
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
         setContentPane(scroll);
-
     }
 
     private void onOK() {
-
         itemsEnable(false);
-
-        buttonOK.setEnabled(false);
         logArea.setText("");
+
         String ip = parseIp();
-        ArrayList<String> estIps = new ArrayList<>();
+
+        ArrayList<String> establishedIps = new ArrayList<>();
 
         if (ip4.isEmpty()) {
-            searchEstablishedIp(ip, estIps);
-            checkAutorizationIp(estIps);
-            ipField1.setText("");
-            ipField2.setText("");
-            ipField3.setText("");
-            ipField4.setText("");
-            buttonOK.setEnabled(true);
-
+            searchEstablishedIp(ip, establishedIps);
+            checkAutorizationIp(establishedIps);
+            clearIpFields();
             itemsEnable(true);
             return;
         }
@@ -81,7 +73,6 @@ public class Main extends JDialog {
             if (success == 0) {
                 ssh.executeSshCommand("rm -r /updateBackup");
                 logArea.append("==========FIND DREAMKAS-F " + ip + "========== \n");
-                System.out.println("==========RESTORE SYSTEM START SUCCESS==========");
                 logArea.append("==========RESTORE SYSTEM START SUCCESS========== \n");
                 ssh.executeSshCommand("killall fiscat");
                 ssh.executeSshCommand("rm /FisGo/fiscat");
@@ -102,47 +93,46 @@ public class Main extends JDialog {
         if (success == 0) {
             logArea.append("==========COPY PATCH==========\n");
             if (ssh.executeScpPut("/", patchName + ".gz") == 0) {
-                System.out.println("==========PATCH SAVE SUCCESS==========");
                 logArea.append("==========PATCH SAVE SUCCESS==========\n");
             } else {
-                System.out.println("==========PATCH SAVE FAILED!!!==========");
                 logArea.append("==========PATCH SAVE FAILED!!!==========\n");
                 JOptionPane.showMessageDialog(null, "FAILED!!!");
+                clearIpFields();
+                itemsEnable(true);
                 return;
             }
             logArea.append("==========UNPACKING PATCH==========\n");
             if (ssh.executeSshCommand("gunzip /" + patchName + ".gz" + " && tar xvf /" + patchName + " -C /") == 0) {
-                System.out.println("==========UNPACKING PATCH SUCCESS==========");
                 logArea.append("==========UNPACKING PATCH SUCCESS==========\n");
             } else {
-                System.out.println("==========UNPACKING PATCH FAILED!!!==========");
                 logArea.append("==========UNPACKING PATCH FAILED!!!==========\n");
                 JOptionPane.showMessageDialog(null, "FAILED!!!");
+                clearIpFields();
+                itemsEnable(true);
                 return;
             }
             ssh.executeSshCommand("sync");
             ssh.executeSshCommand("sync");
             ssh.executeSshCommand("rm /" + patchName);
-            System.out.println("==========REBOOT SYSTEM==========");
             logArea.append("==========REBOOT SYSTEM==========\n");
             ssh.executeSshCommand("/sbin/reboot");
-            System.out.println("==========RESTORE SYSTEM SUCCESS==========");
             logArea.append("==========RESTORE SYSTEM SUCCESS==========\n");
             JOptionPane.showMessageDialog(null, "Success");
         } else {
-            System.out.println("==========RESTORE FAILED!!!==========");
             logArea.append("==========RESTORE FAILED!!!==========\n");
             JOptionPane.showMessageDialog(null, "FAILED!!!");
         }
 
+        clearIpFields();
+        itemsEnable(true);
+        //dispose();
+    }
+
+    private void clearIpFields() {
         ipField1.setText("");
         ipField2.setText("");
         ipField3.setText("");
         ipField4.setText("");
-        buttonOK.setEnabled(true);
-
-        itemsEnable(true);
-        //dispose();
     }
 
     private void itemsEnable(boolean val) {
@@ -154,6 +144,7 @@ public class Main extends JDialog {
         ipField3.setEnabled(val);
         ipField4.setEnabled(val);
         label.setEnabled(val);
+        buttonOK.setEnabled(val);
     }
 
 
@@ -354,6 +345,7 @@ public class Main extends JDialog {
         contentPane.setLayout(new GridBagLayout());
         contentPane.putClientProperty("html.disable", Boolean.FALSE);
         logArea = new JTextArea();
+        logArea.setCaretColor(new Color(-6571081));
         GridBagConstraints gbc;
         gbc = new GridBagConstraints();
         gbc.gridx = 0;
