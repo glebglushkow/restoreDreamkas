@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="restore:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/restore_jar</output-path>
+    <root id="archive" name="restore.jar">
+      <element id="module-output" name="restore" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/ch/ethz/ganymed/ganymed-ssh2/build210/ganymed-ssh2-build210.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
