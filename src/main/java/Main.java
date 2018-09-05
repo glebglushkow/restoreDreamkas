@@ -20,6 +20,7 @@ public class Main extends JDialog {
     private JRadioButton restoreRadioButton;
     private JLabel label;
     private JRadioButton updateButton;
+    private JProgressBar progressBar1;
 
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
     private String ip1;
@@ -49,23 +50,41 @@ public class Main extends JDialog {
     }
 
     private void onOK() {
+
+        if (ipField1.getText().isEmpty() | ipField2.getText().isEmpty() | ipField3.getText().isEmpty()) {
+            return;
+        }
+
         itemsEnable(false);
+
         logArea.setText("");
 
         String ip = parseIp();
 
         ArrayList<String> establishedIps = new ArrayList<>();
 
+        progressBar1.setIndeterminate(true);
+
         if (ip4.isEmpty()) {
             searchEstablishedIp(ip, establishedIps);
             checkAutorizationIp(establishedIps);
             clearIpFields();
             itemsEnable(true);
+            progressBar1.setIndeterminate(false);
             return;
         }
 
-        Ssh ssh = new Ssh(ip, logArea);
 
+        restoreCashbox(ip);
+
+        progressBar1.setIndeterminate(false);
+
+        clearIpFields();
+        itemsEnable(true);
+    }
+
+    private void restoreCashbox(String ip) {
+        Ssh ssh = new Ssh(ip, logArea);
         int success = -1;
         logArea.append("==========DREAMKAS-F SEARCHING========== \n");
         for (int j = 0; j < 20; ++j) {
@@ -106,6 +125,7 @@ public class Main extends JDialog {
                 logArea.append("==========UNPACKING PATCH SUCCESS==========\n");
             } else {
                 logArea.append("==========UNPACKING PATCH FAILED!!!==========\n");
+                progressBar1.setIndeterminate(false);
                 JOptionPane.showMessageDialog(null, "FAILED!!!");
                 clearIpFields();
                 itemsEnable(true);
@@ -117,15 +137,13 @@ public class Main extends JDialog {
             logArea.append("==========REBOOT SYSTEM==========\n");
             ssh.executeSshCommand("/sbin/reboot");
             logArea.append("==========RESTORE SYSTEM SUCCESS==========\n");
+            progressBar1.setIndeterminate(false);
             JOptionPane.showMessageDialog(null, "Success");
         } else {
             logArea.append("==========RESTORE FAILED!!!==========\n");
             JOptionPane.showMessageDialog(null, "FAILED!!!");
         }
 
-        clearIpFields();
-        itemsEnable(true);
-        //dispose();
     }
 
     private void clearIpFields() {
@@ -349,7 +367,7 @@ public class Main extends JDialog {
         GridBagConstraints gbc;
         gbc = new GridBagConstraints();
         gbc.gridx = 0;
-        gbc.gridy = 6;
+        gbc.gridy = 7;
         gbc.gridwidth = 4;
         gbc.weightx = 1.0;
         gbc.weighty = 1.0;
@@ -435,6 +453,13 @@ public class Main extends JDialog {
         gbc.weightx = 1.0;
         gbc.anchor = GridBagConstraints.WEST;
         contentPane.add(updateButton, gbc);
+        progressBar1 = new JProgressBar();
+        gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 6;
+        gbc.gridwidth = 4;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        contentPane.add(progressBar1, gbc);
     }
 
     /**
