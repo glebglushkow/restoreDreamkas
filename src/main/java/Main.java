@@ -51,22 +51,25 @@ public class Main extends JDialog {
 
     private void onOK() {
 
+        //проверка что поля ввода не пустые, если пустые ничего не делать
         if (ipField1.getText().isEmpty() | ipField2.getText().isEmpty() | ipField3.getText().isEmpty()) {
             return;
         }
 
+        //заблокировать items
         itemsEnable(false);
-
         logArea.setText("");
 
+        //считать ip
         String ip = parseIp();
 
-        ArrayList<String> establishedIps = new ArrayList<>();
 
+        //запустить прогресс бар
         progressBar1.setIndeterminate(true);
 
+        //если четвертое поле ввода ip пустое, значит запустит алгоритм поиска кассы в сети, после завершить работу метода
         if (ip4.isEmpty()) {
-            searchEstablishedIp(ip, establishedIps);
+            ArrayList<String> establishedIps = searchEstablishedIp(ip);
             checkAutorizationIp(establishedIps);
             clearIpFields();
             itemsEnable(true);
@@ -74,15 +77,22 @@ public class Main extends JDialog {
             return;
         }
 
-
+        //алгоритм восстановления кассы
         restoreCashbox(ip);
 
+        //выключить прогрессбар
         progressBar1.setIndeterminate(false);
 
+        //очистить поля и сделать доступными все контроллы
         clearIpFields();
         itemsEnable(true);
     }
 
+    /**
+     * Алгоритм восстановления кассы. Так же, если выбран радиобаттон "обновления с 1.0.1, метод обновляет кассу. Для
+     * этого используется переменная String @patchName содержащая имя патча.
+     * @param ip - ip-адрес кассы с которой производятся действия
+     */
     private void restoreCashbox(String ip) {
         Ssh ssh = new Ssh(ip, logArea);
         int success = -1;
@@ -146,6 +156,9 @@ public class Main extends JDialog {
 
     }
 
+    /**
+     * Метод очистки полей для ввода ip
+     */
     private void clearIpFields() {
         ipField1.setText("");
         ipField2.setText("");
@@ -153,6 +166,10 @@ public class Main extends JDialog {
         ipField4.setText("");
     }
 
+    /**
+     * Метод для блокирования и активации контролов
+     * @param val - true или false
+     */
     private void itemsEnable(boolean val) {
         searchRadioButton.setEnabled(val);
         updateButton.setEnabled(val);
@@ -165,45 +182,58 @@ public class Main extends JDialog {
         buttonOK.setEnabled(val);
     }
 
-
+    /**
+     * Метод принимает на вход все ip-адреса доступные в сети и возвращает только адреса кас Дримкас-Ф
+     * @param ipList - список доступныз ip
+     * @return - ip-адреса дримкасов-ф
+     */
     private ArrayList<String> checkAutorizationIp(ArrayList<String> ipList) {
 
-        int countThreads = getCountThreads(ipList);
+        //рассчитать кол-во потоков
+        int countThreads = getCountThreads(ipList.size());
+
+        //получить ip адресса дримкасов-ф
         ArrayList<String> dreamkasIp = getDreamkasfIp(ipList, countThreads);
 
+        //вывести колличество найденный адресов в лог
         logArea.append("======================================================= \n");
         logArea.append("FOUND: " + dreamkasIp.size() + " DREAMKAS-F \n");
         logArea.append("======================================================= \n");
 
+        //если адресов нет выводим в лог сообщение о том что мы очень сожалеем позвоните нам позже
         if (dreamkasIp.size() == 0) {
             logArea.append("DREAMKAS-F NOT FOUND\n");
         }
 
+        //вывод адресов в лог
         dreamkasIp.forEach(s -> {
             System.out.println(s);
             logArea.append(s + "\n");
         });
 
         logArea.append("=======================  COMPLITE  ==================== \n");
-        ;
         return dreamkasIp;
     }
 
+    /**
+     * Метод принимает на вход список ip доступных в сети. В потоках пытается подключиться к каждому. Проверяет что адрес
+     * к которому удалось подключиться является адресом Дримкаса-Ф. Возвращает адреса дримкаса-ф
+     * @param ipList - лист с доступными адресами
+     * @param countThreads - количество потоков необходимых для обрабоки данного листа
+     * @return - лист с адресами кас Дримкас-ф
+     */
     private ArrayList<String> getDreamkasfIp(ArrayList<String> ipList, int countThreads) {
+        //разбитие ip-адресов в потоки
         ArrayList<DreamkasIp> threadList = new ArrayList<>();
         int indFrom;
         int indTo;
         for (int i = 0; i < countThreads; ++i) {
             indFrom = i * 10;
-            // if (indFrom <= ipList.size()) {
             if (ipList.size() - indFrom > 10) {
                 indTo = 10 * (i + 1) - 1;
-                System.out.println("FROM - " + indFrom + ";" + "TO - " + indTo);
                 ArrayList<String> subIp = new ArrayList<>(ipList.subList(indFrom, indTo));
                 threadList.add(new DreamkasIp(subIp, logArea));
             } else {
-                indTo = ipList.size() - 1;
-                System.out.println("FROM - " + indFrom + ";" + "TO - " + indTo);
                 ArrayList<String> subIp = new ArrayList<>(ipList.subList(indFrom, ipList.size() - 1));
                 threadList.add(new DreamkasIp(subIp, logArea));
             }
@@ -211,10 +241,12 @@ public class Main extends JDialog {
 
         logArea.append("search dreamkas-f...\n");
 
+        //старт потоков
         for (DreamkasIp thread : threadList) {
             thread.start();
         }
 
+        //дождаться окончания всех потоков
         for (DreamkasIp thread : threadList) {
             try {
                 thread.join();
@@ -223,11 +255,13 @@ public class Main extends JDialog {
             }
         }
 
+        //добавить все найденные потоками адреса в один лист
         ArrayList<String> dreamkasIp = new ArrayList<>();
         for (DreamkasIp ip : threadList) {
             dreamkasIp.addAll(ip.getDreamkasIps());
         }
 
+        //проверка является ли каждый найденый адрес адресом дримкаса-ф
         ArrayList<String> dreamkasFip = new ArrayList<>();
         for (String ip : dreamkasIp) {
             Ssh ssh = new Ssh(ip, logArea);
@@ -239,31 +273,43 @@ public class Main extends JDialog {
         return dreamkasFip;
     }
 
-    private int getCountThreads(ArrayList<String> ipList) {
-        int countThreads = ipList.size() / 10;
-        if ((ipList.size() % 10 != 0) || (ipList.size() < 10)) {
+    /**
+     * Метож считает количество потоков для обработки массива ip-адресов, из которых нужно найти дримкас-ф.
+     * Предполагается отдавать каждому потоку по 10 адресов, исходя из этого счтается количество потоков.
+     * @param sizeListIp - количество адресов.
+     * @return количество потоков необходимое для обработки всего массива
+     */
+    private int getCountThreads(int sizeListIp) {
+        int countThreads = sizeListIp / 10;
+        if ((sizeListIp % 10 != 0) || (sizeListIp < 10)) {
             countThreads++;
         }
         return countThreads;
     }
 
-
-    private void searchEstablishedIp(String ip, ArrayList<String> estIps) {
+    /**
+     * Метод принимает на вход адрес сети в которой находится касса и находит в этой сети все доступные ip адреса
+     * @param host - адрес сети в которой находится касса
+     * @return лист с доступными ip адресами
+     */
+    private ArrayList<String> searchEstablishedIp(String host) {
         System.out.println("=======================================================");
         logArea.append("=======================================================\n");
         System.out.println("SCAN START");
         logArea.append("SCAN START\n");
         System.out.println("=======================================================");
         logArea.append("=======================================================\n");
-        ArrayList<ListIp> listIpThread = new ArrayList<>();
 
+        //создание потоков и их запуск
+        ArrayList<ListIp> listIpThread = new ArrayList<>();
         for (int i = 0; i < 32; i++) {
-            listIpThread.add(new ListIp(ip, i * 8, (i + 1) * 8));
+            listIpThread.add(new ListIp(host, i * 8, (i + 1) * 8));
             listIpThread.get(i).start();
         }
 
         logArea.append("scanning...\n");
 
+        //дожидаемся завершения потоков
         for (int i = 0; i < 32; i++) {
             try {
                 listIpThread.get(i).join();
@@ -271,41 +317,41 @@ public class Main extends JDialog {
                 e.printStackTrace();
             }
         }
+
         logArea.append("SCAN FINISH\n");
         System.out.println("SCAN FINISH");
+
+        //получить все ip полученные каждым потоком
+        ArrayList<String> establishedIps = new ArrayList<>();
         for (int i = 0; i < 32; i++) {
-            estIps.addAll(listIpThread.get(i).getEstablishedIps());
+            establishedIps.addAll(listIpThread.get(i).getEstablishedIps());
         }
+
         System.out.println("=======================================================");
         logArea.append("=======================================================\n");
-        System.out.println("SCAN RESULTS " + estIps.size() + " CONNECTIONS ESTABLISHED");
-        logArea.append("SCAN RESULTS " + estIps.size() + " CONNECTIONS ESTABLISHED\n");
+        System.out.println("SCAN RESULTS " + establishedIps.size() + " CONNECTIONS ESTABLISHED");
+        logArea.append("SCAN RESULTS " + establishedIps.size() + " CONNECTIONS ESTABLISHED\n");
         System.out.println("=======================================================");
-        estIps.forEach(s -> System.out.println(s + " ESTABLISHED"));
+        establishedIps.forEach(s -> System.out.println(s + " ESTABLISHED"));
         System.out.println("=======================================================");
+
+        return establishedIps;
     }
 
-    private void checkHosts(String subnet, int max) throws IOException {
-        int timeout = 1000;
-        for (int i = 1; i < max; i++) {
-            String host = subnet + "." + i;
-            if (InetAddress.getByName(host).isReachable(timeout)) {
-                System.out.println(host + " ESTABLISHED");
-            } else {
-                System.out.println(host + " LOST");
-            }
-        }
-    }
-
+    /**
+     * Метод реализующий выбор радиобаттонов
+     */
     private void settingChoose() {
         ButtonGroup group = new ButtonGroup();
         group.add(searchRadioButton);
         group.add(restoreRadioButton);
         group.add(updateButton);
 
+        //Поставить "восстановления кассы" по умолчанию
         restoreRadioButton.setSelected(true);
         patchName = "dirPatch_1_9_12.tar";
 
+        //листенер "поиск кассы". если баттон выбран, скрывает 4-ое поле ввода ip-адреса
         searchRadioButton.addActionListener(e -> {
             if (searchRadioButton.isSelected()) {
                 label.setText("Введите адрес сети");
@@ -313,6 +359,7 @@ public class Main extends JDialog {
             }
         });
 
+        //листенер "востановление кассы". активирует 4-ое поле на случай если до этого оно было скрыто
         restoreRadioButton.addActionListener(e -> {
             if (restoreRadioButton.isSelected()) {
                 patchName = "dirPatch_1_9_12.tar";
@@ -321,6 +368,7 @@ public class Main extends JDialog {
             }
         });
 
+        //листенер "обновление кассы". активирует 4-ое поле на случай если до этого оно было скрыто
         updateButton.addActionListener(e -> {
             patchName = "dirPatch_1_9_12_from_1_0_1.tar";
             label.setText("Введите IP кассы");
@@ -328,6 +376,10 @@ public class Main extends JDialog {
         });
     }
 
+    /**
+     * Метод парсит поля ввода ip адресса
+     * @return
+     */
     private String parseIp() {
         ip1 = ipField1.getText();
         ip2 = ipField2.getText();
